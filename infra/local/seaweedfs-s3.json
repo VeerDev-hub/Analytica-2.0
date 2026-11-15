@@ -1,0 +1,11 @@
+{
+  "identities": [
+    {
+      "name": "analytica-local",
+      "credentials": [
+        { "accessKey": "analytica", "secretKey": "analytica-secret" }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

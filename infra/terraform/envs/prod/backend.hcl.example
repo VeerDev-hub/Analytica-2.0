@@ -1,0 +1,6 @@
+# Copy to backend.hcl. Create the state bucket and lock table once, by hand.
+bucket         = "your-terraform-state-bucket"
+key            = "analytica/prod/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "terraform-locks"
+encrypt        = true
