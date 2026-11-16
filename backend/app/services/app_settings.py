@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import ValidationFailed
 from app.models import AppSetting
 
-CHAT_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"]
+CHAT_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 
 
@@ -39,19 +39,20 @@ SCHEMA: dict[str, dict] = {
         "type": "bool",
         "label": "Chat assistant",
         "help": "Turn the data assistant on or off for everyone. It also needs "
-        "ANTHROPIC_API_KEY on the server.",
+        "GEMINI_API_KEY on the server.",
     },
     "chat_model": {
         "type": "select",
         "options": CHAT_MODELS,
         "label": "Chat model",
-        "help": "Opus 5.5 is the most capable default; Sonnet/Haiku are cheaper.",
+        "help": "Flash is the free-tier default. Flash-Lite is faster; Pro is stronger "
+        "but has tighter free-tier limits.",
     },
     "chat_effort": {
         "type": "select",
         "options": EFFORTS,
         "label": "Chat effort",
-        "help": "Higher effort thinks longer and costs more per answer.",
+        "help": "Sets the Gemini thinking budget. Higher thinks longer and uses more tokens.",
     },
     "signups_open": {
         "type": "bool",
@@ -91,6 +92,8 @@ def all_settings(db: Session, fresh: bool = False) -> dict[str, Any]:
     for row in db.scalars(select(AppSetting)):
         if row.key in values:
             values[row.key] = row.value
+    if values["chat_model"] not in CHAT_MODELS:  # e.g. a model saved before a provider switch
+        values["chat_model"] = get_settings().chat_model
     _cache.update(at=time.monotonic(), values=values)
     return dict(values)
 

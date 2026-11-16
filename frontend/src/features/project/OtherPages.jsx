@@ -38,7 +38,7 @@ export function AssistantPage() {
           <div className="m-auto max-w-md p-6 text-center text-sm text-muted">
             <p className="font-medium text-fg">The assistant is turned off</p>
             <p className="mt-1">
-              It needs <code className="font-mono">ANTHROPIC_API_KEY</code> on the server, and an admin can switch it on or off in Admin → Settings.
+              It needs <code className="font-mono">GEMINI_API_KEY</code> on the server, and an admin can switch it on or off in Admin → Settings.
             </p>
           </div>
         ) : (

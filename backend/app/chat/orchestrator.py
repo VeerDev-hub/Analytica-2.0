@@ -1,4 +1,4 @@
-"""Chat orchestrator (design 4.5): Claude + tools, grounded in executed queries.
+"""Chat orchestrator (design 4.5): Gemini + tools, grounded in executed queries.
 
 Rule 6: chat never sees the whole file. The model gets the schema, column descriptions, a
 small masked sample and tool results. Every number in an answer must come from `run_sql`;
@@ -10,9 +10,11 @@ from __future__ import annotations
 import json
 import logging
 import time
+import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from functools import lru_cache
+from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
@@ -31,25 +33,27 @@ from app.storage.cache import local_path
 logger = logging.getLogger(__name__)
 MAX_TOOL_ROUNDS = 8
 HISTORY_TURNS = 12
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# Effort setting -> Gemini thinking budget (tokens).
+THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 8192, "xhigh": 16384, "max": 24576}
 
 
 # --------------------------------------------------------------------------- client
 @lru_cache
 def get_client():
-    key = get_settings().anthropic_api_key
+    key = get_settings().gemini_api_key
     if not key:
         raise ServiceUnavailable(
-            "Chat is not configured. Set ANTHROPIC_API_KEY on the API and worker services.",
+            "Chat is not configured. Set GEMINI_API_KEY on the API and worker services.",
             code="CHAT_DISABLED",
         )
-    import anthropic
+    from google import genai
+    from google.genai import types
 
-    return anthropic.Anthropic(api_key=key, max_retries=2, timeout=120)
+    return genai.Client(api_key=key, http_options=types.HttpOptions(timeout=120_000))
 
 
 def chat_enabled() -> bool:
-    return bool(get_settings().anthropic_api_key)
+    return bool(get_settings().gemini_api_key)
 
 
 # --------------------------------------------------------------------------- tools
@@ -57,7 +61,6 @@ def _tool(name: str, description: str, props: dict, required: list[str]) -> dict
     return {
         "name": name,
         "description": description,
-        "eager_input_streaming": True,
         "input_schema": {
             "type": "object",
             "properties": props,
@@ -299,28 +302,130 @@ def execute_tool(db: Session, ctx: ChatContext, name: str, inp: Any) -> tuple[st
 
 
 # --------------------------------------------------------------------------- LLM turn
+# Messages stay in a provider-neutral shape: {"role": "user"|"assistant", "content": str |
+# blocks}, where blocks are tool_use/text objects from the model and {"type": "tool_result"}
+# dicts we send back. `_to_gemini` converts them for each call.
+def _gemini_tools():
+    from google.genai import types
+
+    return [
+        types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(
+                    name=t["name"],
+                    description=t["description"],
+                    parameters_json_schema=t["input_schema"],
+                )
+                for t in TOOLS
+            ]
+        )
+    ]
+
+
+def _to_gemini(messages: list[dict]) -> list:
+    from google.genai import types
+
+    names: dict[str, str] = {}  # tool_use id -> tool name (function responses need the name)
+    contents = []
+    for m in messages:
+        role = "model" if m["role"] == "assistant" else "user"
+        c = m["content"]
+        if isinstance(c, str):
+            contents.append(types.Content(role=role, parts=[types.Part(text=c)]))
+            continue
+        parts = []
+        for b in c:
+            if isinstance(b, dict) and b.get("type") == "tool_result":
+                body = {"error": b["content"]} if b.get("is_error") else {"result": b["content"]}
+                parts.append(
+                    types.Part(
+                        function_response=types.FunctionResponse(
+                            id=b["tool_use_id"],
+                            name=names.get(b["tool_use_id"], "unknown"),
+                            response=body,
+                        )
+                    )
+                )
+                continue
+            if getattr(b, "type", "") == "tool_use":
+                names[b.id] = b.name
+            raw = getattr(b, "part", None)  # the original part keeps Gemini's thought signature
+            if raw is not None:
+                parts.append(raw)
+            elif getattr(b, "type", "") == "text":
+                parts.append(types.Part(text=b.text))
+        if parts:
+            contents.append(types.Content(role=role, parts=parts))
+    return contents
+
+
+_REFUSAL = {"SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"}
+
+
 def stream_turn(
     system: str, messages: list[dict], model: str, effort: str
 ) -> Iterator[tuple[str, Any]]:
-    """One model call. Yields ("text", delta) events, then ("final", message).
-    Separated so tests can replace it with a scripted fake."""
+    """One model call. Yields ("text", delta) events, then ("final", message) with .content
+    (blocks), .stop_reason and .usage. Separated so tests can replace it with a fake."""
+    from google.genai import types
+
     s = get_settings()
     client = get_client()
-    with client.beta.messages.stream(
-        model=model,
-        max_tokens=s.chat_max_tokens,
-        system=system,
-        messages=messages,
-        tools=TOOLS,
-        output_config={"effort": effort},
-        cache_control={"type": "ephemeral"},  # schema + catalog prefix is stable per version
-        betas=[FALLBACK_BETA],
-        fallbacks="default",  # on a policy decline the API retries on a fallback model
-    ) as stream:
-        for event in stream:
-            if event.type == "text":
-                yield "text", event.text
-        yield "final", stream.get_final_message()
+    config = types.GenerateContentConfig(
+        system_instruction=system,
+        tools=_gemini_tools(),
+        max_output_tokens=s.chat_max_tokens,
+        thinking_config=types.ThinkingConfig(thinking_budget=THINKING_BUDGET.get(effort, 4096)),
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+    blocks: list[Any] = []
+    finish, blocked, usage = None, False, None
+    for chunk in client.models.generate_content_stream(
+        model=model, contents=_to_gemini(messages), config=config
+    ):
+        if chunk.usage_metadata:
+            usage = chunk.usage_metadata
+        feedback = getattr(chunk, "prompt_feedback", None)
+        if feedback is not None and getattr(feedback, "block_reason", None):
+            blocked = True
+        for cand in chunk.candidates or []:
+            if cand.finish_reason:
+                finish = getattr(cand.finish_reason, "name", str(cand.finish_reason))
+            for part in (cand.content.parts if cand.content else None) or []:
+                if part.function_call:
+                    fc = part.function_call
+                    blocks.append(
+                        SimpleNamespace(
+                            type="tool_use",
+                            id=fc.id or f"call_{uuid.uuid4().hex[:12]}",
+                            name=fc.name,
+                            input=dict(fc.args or {}),
+                            part=part,
+                        )
+                    )
+                elif part.text and not part.thought:
+                    yield "text", part.text
+                    blocks.append(SimpleNamespace(type="text", text=part.text, part=part))
+    if blocked or finish in _REFUSAL:
+        stop = "refusal"
+    elif any(b.type == "tool_use" for b in blocks):
+        stop = "tool_use"
+    elif finish == "MAX_TOKENS":
+        stop = "max_tokens"
+    else:
+        stop = "end_turn"
+    yield (
+        "final",
+        SimpleNamespace(
+            content=blocks,
+            stop_reason=stop,
+            usage=SimpleNamespace(
+                input_tokens=getattr(usage, "prompt_token_count", 0) or 0,
+                output_tokens=(getattr(usage, "candidates_token_count", 0) or 0)
+                + (getattr(usage, "thoughts_token_count", 0) or 0),
+            ),
+        ),
+    )
 
 
 def _history(db: Session, session: ChatSession) -> list[dict]:
@@ -456,15 +561,17 @@ def run_chat(
 
 def _friendly_error(e: Exception) -> str:
     try:
-        import anthropic
+        import httpx
+        from google.genai import errors
     except ImportError:  # pragma: no cover
         return "The assistant is unavailable right now."
-    if isinstance(e, anthropic.RateLimitError):
-        return "The assistant is busy (rate limited). Try again in a minute."
-    if isinstance(e, anthropic.AuthenticationError):
-        return "The assistant's API key is invalid. Ask the administrator to check it."
-    if isinstance(e, anthropic.APIStatusError):
-        return f"The assistant failed (API error {e.status_code}). Try again."
-    if isinstance(e, anthropic.APIConnectionError):
+    if isinstance(e, errors.APIError):
+        code, msg = e.code, str(e.message or "")
+        if code == 429:
+            return "The assistant is busy (rate limit or free-tier quota reached). Try again later."
+        if code in (401, 403) or "API key" in msg:
+            return "The assistant's API key is invalid. Ask the administrator to check it."
+        return f"The assistant failed (API error {code}). Try again."
+    if isinstance(e, httpx.HTTPError):
         return "Could not reach the assistant service. Check the network and try again."
     return "Something went wrong while answering. Try again."

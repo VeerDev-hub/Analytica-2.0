@@ -53,7 +53,7 @@ variable "worker_count" {
 }
 variable "chat_model" {
   type    = string
-  default = "claude-opus-5-5"
+  default = "gemini-2.5-flash"
 }
 variable "log_retention_days" {
   type    = number
@@ -259,7 +259,7 @@ locals {
   secrets = [
     { name = "DB_PASSWORD", valueFrom = "${var.db_master_secret_arn}:password::" },
     { name = "JWT_SECRET", valueFrom = "${var.app_secret_arn}:JWT_SECRET::" },
-    { name = "ANTHROPIC_API_KEY", valueFrom = "${var.app_secret_arn}:ANTHROPIC_API_KEY::" },
+    { name = "GEMINI_API_KEY", valueFrom = "${var.app_secret_arn}:GEMINI_API_KEY::" },
   ]
   services = {
     api = {

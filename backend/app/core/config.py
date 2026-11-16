@@ -46,8 +46,8 @@ class Settings(BaseSettings):
     preview_sample_rows: int = 1000
 
     # Chat (Phase 4). Chat endpoints return 503 until a key is configured.
-    anthropic_api_key: str | None = None
-    chat_model: str = "claude-opus-5-5"
+    gemini_api_key: str | None = None
+    chat_model: str = "gemini-2.5-flash"
     chat_effort: str = "medium"  # low | medium | high | xhigh | max
     chat_max_tokens: int = 16000
 
@@ -60,9 +60,10 @@ class Settings(BaseSettings):
     public_app_url: str = "http://localhost:5173"
     # Comma-separated emails that become admins when they sign in.
     admin_emails: str = ""
-    # USD per million tokens, for the admin cost estimate (Claude Opus 5.5 list price).
-    llm_price_in_per_mtok: float = 4.0
-    llm_price_out_per_mtok: float = 20.0
+    # USD per million tokens, for the admin cost estimate.
+    # Gemini 2.5 Flash paid-tier list price; on the free tier the real cost is zero.
+    llm_price_in_per_mtok: float = 0.30
+    llm_price_out_per_mtok: float = 2.50
 
     # Run Celery tasks inline (tests).
     celery_eager: bool = False

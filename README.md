@@ -81,7 +81,7 @@ Generated scripts embed the values learned during fitting (fill values, bounds, 
 | Data engine | pandas, NumPy, PyArrow, DuckDB, SciPy, scikit-learn, imbalanced-learn |
 | Database | PostgreSQL 16 with pgvector |
 | Object storage | S3 (SeaweedFS locally, AWS S3 when deployed) |
-| Assistant | Anthropic Claude API, with tool use and a sandboxed DuckDB SQL tool |
+| Assistant | Google Gemini API (free tier works), with function calling and a sandboxed DuckDB SQL tool |
 | Auth | JWT access and refresh tokens, Argon2 password hashing, Google and GitHub OAuth |
 | Infrastructure | Docker Compose (local); Terraform on AWS: ECS Fargate, RDS, ElastiCache, S3, CloudFront, CloudWatch |
 
@@ -136,7 +136,7 @@ Generated scripts embed the values learned during fitting (fill values, bounds, 
 
 - [Docker](https://docs.docker.com/get-docker/) with Docker Compose v2
 - [Node.js](https://nodejs.org/) 20 or later, for the frontend
-- Optional: an [Anthropic API key](https://console.anthropic.com/), needed only for the Assistant
+- Optional: a free [Gemini API key](https://aistudio.google.com/apikey), needed only for the Assistant
 
 ### 1. Configure the environment
 
@@ -144,7 +144,7 @@ Generated scripts embed the values learned during fitting (fill values, bounds, 
 cp .env.example .env
 ```
 
-The defaults work for local development. To enable the Assistant, set `ANTHROPIC_API_KEY`. To make your account an admin, add your email to `ADMIN_EMAILS`.
+The defaults work for local development. To enable the Assistant, set `GEMINI_API_KEY`. To make your account an admin, add your email to `ADMIN_EMAILS`.
 
 ### 2. Start the backend stack
 
@@ -201,8 +201,8 @@ Settings are read from environment variables (see [`backend/app/core/config.py`]
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated list |
 | `DATABASE_URL` | local Postgres | On AWS it is assembled from `DB_HOST` / `DB_PASSWORD` instead |
 | `S3_BUCKET`, `S3_ENDPOINT_URL` | `analytica-data`, SeaweedFS | Leave the endpoint empty on AWS to use the default endpoint and the IAM role |
-| `ANTHROPIC_API_KEY` | empty | Chat endpoints return `503` until this is set |
-| `CHAT_MODEL` | `claude-opus-5-5` | Model used by the Assistant |
+| `GEMINI_API_KEY` | empty | Chat endpoints return `503` until this is set |
+| `CHAT_MODEL` | `gemini-2.5-flash` | Model used by the Assistant |
 | `ADMIN_EMAILS` | empty | These users become admins when they sign in |
 | `PUBLIC_APP_URL` | `http://localhost:5173` | Base URL for OAuth redirects |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | empty | Google sign-in appears only when both are set |

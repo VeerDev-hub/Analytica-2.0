@@ -18,7 +18,7 @@ os.environ.update(
     LOCAL_STORAGE_DIR=str(_tmp / "storage"),
     CACHE_DIR=str(_tmp / "cache"),
     CELERY_EAGER="true",
-    ANTHROPIC_API_KEY="",
+    GEMINI_API_KEY="",
 )
 
 import pytest  # noqa: E402
