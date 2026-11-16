@@ -137,3 +137,5 @@ build/
 backend.hcl
 *.tfvars
 !*.tfvars.example
+
+.legacy/
