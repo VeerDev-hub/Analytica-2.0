@@ -4,8 +4,6 @@ Analytica Studio is a web app for getting tabular data ready for machine learnin
 
 Version 2.0 rewrites the original single-user Streamlit app (kept in [`legacy/`](legacy/)) as a multi-user platform: a FastAPI API, Celery workers, PostgreSQL, S3 object storage, a React frontend and Terraform for AWS.
 
-![Architecture](docs/System%20Design/architecture-full.png)
-
 ---
 
 ## Contents
