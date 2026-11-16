@@ -65,6 +65,15 @@ class ServiceUnavailable(AppError):
     code = "SERVICE_UNAVAILABLE"
 
 
+class TooManyRequests(AppError):
+    status_code = 429
+    code = "RATE_LIMITED"
+
+    def __init__(self, message: str, *, retry_after: int = 60, **kw) -> None:
+        super().__init__(message, **kw)
+        self.retry_after = retry_after
+
+
 def _body(code: str, message: str, details: Any = None) -> dict:
     return {"error": {"code": code, "message": message, "details": details}}
 
@@ -72,7 +81,12 @@ def _body(code: str, message: str, details: Any = None) -> dict:
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError):
-        return JSONResponse(_body(exc.code, exc.message, exc.details), status_code=exc.status_code)
+        headers = (
+            {"Retry-After": str(exc.retry_after)} if isinstance(exc, TooManyRequests) else None
+        )
+        return JSONResponse(
+            _body(exc.code, exc.message, exc.details), status_code=exc.status_code, headers=headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError):

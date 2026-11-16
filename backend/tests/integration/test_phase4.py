@@ -49,6 +49,19 @@ def sse(res):
     return [json.loads(line[6:]) for line in res.text.splitlines() if line.startswith("data: ")]
 
 
+@pytest.fixture(autouse=True)
+def pro_plan(auth):
+    """The assistant is a paid feature; put the test user on the Pro plan."""
+    from sqlalchemy import update
+
+    from app.core.db import session_scope
+    from app.models import User
+
+    with session_scope() as db:
+        db.execute(update(User).values(plan="pro"))
+        db.commit()
+
+
 @pytest.fixture
 def chat_project(client, auth, monkeypatch):
     monkeypatch.setattr("app.api.v1.chat.get_client", lambda: None)
@@ -66,7 +79,8 @@ def chat_project(client, auth, monkeypatch):
 def test_chat_disabled_without_key(client, auth):
     p = upload_csv(client, auth, CSV)
     s = client.post(f"/api/v1/projects/{p['id']}/chat/sessions", headers=auth).json()
-    assert client.get("/api/v1/chat/status", headers=auth).json() == {"enabled": False}
+    status = client.get("/api/v1/chat/status", headers=auth).json()
+    assert status["enabled"] is False and status["allowed"] is True and status["plan"] == "pro"
     r = client.post(
         f"/api/v1/chat/sessions/{s['id']}/messages", headers=auth, json={"content": "hi"}
     )

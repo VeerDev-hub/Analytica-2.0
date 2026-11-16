@@ -156,6 +156,7 @@ function Users() {
               <th className="px-4 py-2 font-normal">User</th>
               <th className="px-2 py-2 font-normal">Sign-in</th>
               <th className="px-2 py-2 font-normal">Projects</th>
+              <th className="px-2 py-2 font-normal">Plan</th>
               <th className="px-2 py-2 font-normal">Storage</th>
               <th className="px-2 py-2 font-normal">Last active</th>
               <th className="px-2 py-2 font-normal">Role</th>
@@ -182,6 +183,13 @@ function Users() {
                   </div>
                 </td>
                 <td className="px-2 py-2 tabular-nums">{u.projects}</td>
+                <td className="px-2 py-2">
+                  <Select className="h-8 w-28" value={u.plan} onChange={(e) => patch.mutate({ id: u.id, body: { plan: e.target.value } })} aria-label={`Plan for ${u.email}`}>
+                    <option value="free">Free</option>
+                    <option value="pro">Pro</option>
+                    <option value="business">Business</option>
+                  </Select>
+                </td>
                 <td className="px-2 py-2">
                   <QuotaCell u={u} onChange={(mb) => patch.mutate({ id: u.id, body: { storage_quota_mb: mb } })} />
                 </td>
@@ -226,7 +234,7 @@ const QUOTAS = [
   [102400, '100 GB'],
 ];
 
-/** Usage bar plus a per-user limit picker ("Default" = the app-wide setting). */
+/** Usage bar plus a per-user limit picker ("Plan default" = what the user's plan allows). */
 function QuotaCell({ u, onChange }) {
   const pct = Math.min(100, (100 * u.storage_used) / Math.max(u.storage_quota, 1));
   const options = QUOTAS.some(([v]) => v === u.custom_quota_mb) || !u.custom_quota_mb ? QUOTAS : [...QUOTAS, [u.custom_quota_mb, `${u.custom_quota_mb} MB`]];
@@ -242,7 +250,7 @@ function QuotaCell({ u, onChange }) {
         >
           {options.map(([v, l]) => (
             <option key={v} value={v}>
-              {v === 0 ? `Default (${fmtBytes(u.custom_quota_mb ? 0 : u.storage_quota)})` : l}
+              {v === 0 ? (u.custom_quota_mb ? 'Plan default' : `Plan default (${fmtBytes(u.storage_quota)})`) : l}
             </option>
           ))}
         </Select>
@@ -359,6 +367,9 @@ function SettingControl({ spec, value, onChange }) {
   }
   if (spec.type === 'int') {
     return <Input className="w-28" type="number" min={spec.min} max={spec.max} value={value} onChange={(e) => onChange(Number(e.target.value))} />;
+  }
+  if (spec.type === 'text') {
+    return <Input className="w-full sm:w-80" maxLength={spec.max} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />;
   }
   return (
     <div className="flex w-full gap-2 sm:w-auto">

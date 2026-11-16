@@ -8,10 +8,11 @@ function themeLayout() {
   return {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: v('--fg'), family: 'ui-sans-serif, system-ui, sans-serif', size: 12 },
-    colorway: [v('--info'), v('--accent'), v('--ok'), v('--warn'), v('--danger'), '#8b5cf6', '#14b8a6', '#64748b'],
-    xaxis: { gridcolor: v('--border'), zerolinecolor: v('--border') },
-    yaxis: { gridcolor: v('--border'), zerolinecolor: v('--border') },
+    font: { color: v('--muted'), family: "Inter, ui-sans-serif, system-ui, sans-serif", size: 12 },
+    hoverlabel: { bgcolor: v('--surface'), bordercolor: v('--border'), font: { color: v('--fg'), family: 'Inter, sans-serif' } },
+    colorway: ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6'].map(v).concat([v('--muted')]),
+    xaxis: { gridcolor: v('--border'), zerolinecolor: v('--border'), linecolor: v('--border') },
+    yaxis: { gridcolor: v('--border'), zerolinecolor: v('--border'), linecolor: v('--border') },
     legend: { orientation: 'h', y: -0.2 },
   };
 }

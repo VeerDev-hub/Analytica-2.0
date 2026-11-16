@@ -14,7 +14,7 @@ const VIEWS = [
 /** @param {{value: string, onChange: (v: string) => void, options: {id: string, label: string, icon?: any}[]}} props */
 export function Segmented({ value, onChange, options }) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-surface p-0.5" role="tablist">
+    <div className="inline-flex rounded-xl border border-border bg-surface shadow-card p-0.5" role="tablist">
       {options.map((o) => (
         <button
           key={o.id}
@@ -125,7 +125,7 @@ function Columns({ ov }) {
       {ov.columns
         .filter((/** @type {any} */ c) => c.name !== '__split__')
         .map((/** @type {any} */ c) => (
-          <div key={c.id} className="rounded-lg border border-border bg-surface p-3">
+          <div key={c.id} className="rounded-xl border border-border bg-surface shadow-card p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="truncate font-medium" title={c.name}>
                 {c.name}

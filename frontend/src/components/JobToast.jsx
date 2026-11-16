@@ -20,7 +20,7 @@ export function JobToast() {
 
   if (!projectId || !job) return null;
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-72 rounded-lg border border-border bg-surface p-3 shadow-lg" role="status">
+    <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xl border border-border bg-surface shadow-pop p-3 shadow-lg" role="status">
       <div className="flex items-center justify-between gap-2 text-sm">
         <span className="font-medium">{job.status === 'failed' ? 'Step failed' : done ? 'Done' : 'Working…'}</span>
         {done && (

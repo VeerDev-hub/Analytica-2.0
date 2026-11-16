@@ -42,6 +42,14 @@ class Settings(BaseSettings):
 
     # Limits (design 1.7)
     max_upload_mb: int = 200
+    # Rate limiting (per IP / per account, counters in Redis). Tests turn it off.
+    rate_limit_enabled: bool = True
+    # Read the client IP from X-Forwarded-For (set by the ALB/CloudFront in AWS and by the
+    # Vite dev proxy). Turn off if the API is reachable without a proxy in front of it.
+    trust_proxy: bool = True
+    # Sign-up looks up the email domain's MX records: rejects domains that can't receive mail
+    # and catches temp-mail services' rotating domains by their mail servers.
+    email_dns_check: bool = True
     max_rows: int = 2_000_000
     preview_sample_rows: int = 1000
 

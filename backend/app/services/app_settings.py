@@ -17,7 +17,12 @@ from app.core.config import get_settings
 from app.core.errors import ValidationFailed
 from app.models import AppSetting
 
-CHAT_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+CHAT_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+]
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 
 
@@ -30,7 +35,8 @@ def _defaults() -> dict[str, Any]:
         "signups_open": True,
         "max_upload_mb": s.max_upload_mb,
         "announcement": {"text": "", "tone": "info"},
-        "storage_quota_mb": 5120,
+        "upgrade_url": "",
+        "blocked_email_domains": "",
     }
 
 
@@ -66,13 +72,20 @@ SCHEMA: dict[str, dict] = {
         "label": "Upload limit (MB)",
         "help": "Largest file a user can upload.",
     },
-    "storage_quota_mb": {
-        "type": "int",
-        "min": 100,
-        "max": 1_000_000,
-        "label": "Storage per account (MB)",
-        "help": "Default limit for every account (5120 MB = 5 GB). Uploads, cleaning versions "
-        "and exports all count. You can give individual users more in the Users tab.",
+    "upgrade_url": {
+        "type": "text",
+        "max": 500,
+        "label": "Upgrade link",
+        "help": "Where the “Upgrade” button sends users: a payment link (e.g. Stripe) or a "
+        "contact page. Leave empty to hide the button. Plans are assigned in the Users tab.",
+    },
+    "blocked_email_domains": {
+        "type": "text",
+        "max": 5000,
+        "label": "Blocked email domains",
+        "help": "Extra domains that can't sign up, separated by spaces or commas. About "
+        "108,000 temporary-mail domains are already blocked, plus any domain whose mail "
+        "servers belong to one.",
     },
     "announcement": {
         "type": "announcement",
@@ -115,6 +128,8 @@ def _validate(key: str, value: Any) -> Any:
         raise ValidationFailed(f"{spec['label']} must be between {spec['min']} and {spec['max']}")
     if t == "select" and value in spec["options"]:
         return value
+    if t == "text" and isinstance(value, str):
+        return value.strip()[: spec.get("max", 1000)]
     if t == "announcement" and isinstance(value, dict):
         text = str(value.get("text", ""))[:300]
         tone = value.get("tone", "info")

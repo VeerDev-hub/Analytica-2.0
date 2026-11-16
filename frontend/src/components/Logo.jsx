@@ -10,8 +10,8 @@ export function LogoMark({ size = 32, className }) {
     <svg width={size} height={size} viewBox="0 0 32 32" className={className} role="img" aria-label="Analytica">
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fb923c" />
-          <stop offset="1" stopColor="#ea580c" />
+          <stop offset="0" stopColor="#6366f1" />
+          <stop offset="1" stopColor="#0891b2" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="8" fill={`url(#${gid})`} />
@@ -20,7 +20,7 @@ export function LogoMark({ size = 32, className }) {
       <circle cx="11.6" cy="18.5" r="2.1" fill="#fff" />
       <circle cx="16" cy="18.5" r="2.1" fill="#fff" />
       <circle cx="20.4" cy="18.5" r="2.1" fill="#fff" />
-      <circle cx="16" cy="18.5" r="0.9" fill="#ea580c" />
+      <circle cx="16" cy="18.5" r="0.9" fill="#0891b2" />
     </svg>
   );
 }

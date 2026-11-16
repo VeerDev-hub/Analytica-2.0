@@ -63,7 +63,7 @@ export function StepsPage({ kind }) {
       <SectionHeader section={kind} ctx={ctx} showTarget={kind === 'features'} />
       <div className="flex flex-col gap-4 lg:flex-row">
         <aside className="lg:w-72 lg:shrink-0">
-          <div className="rounded-lg border border-border bg-surface">
+          <div className="rounded-xl border border-border bg-surface shadow-card">
             <div className="flex items-center gap-2 border-b border-border px-3 py-2">
               <Icon name="search" size={15} className="text-muted" />
               <input className="h-7 w-full bg-transparent text-sm outline-none" placeholder="Search steps" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search steps" />

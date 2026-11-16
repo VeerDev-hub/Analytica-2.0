@@ -19,6 +19,8 @@ os.environ.update(
     CACHE_DIR=str(_tmp / "cache"),
     CELERY_EAGER="true",
     GEMINI_API_KEY="",
+    RATE_LIMIT_ENABLED="false",
+    EMAIL_DNS_CHECK="false",
 )
 
 import pytest  # noqa: E402

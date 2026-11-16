@@ -21,7 +21,7 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen bg-bg text-fg">
       {/* desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-border bg-surface lg:block">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-border bg-surface/80 backdrop-blur-xl lg:block">
         <SidebarContent />
       </aside>
       {/* mobile drawer */}
@@ -29,7 +29,7 @@ export function AppShell() {
         <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setMobileOpen(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <aside
-            className="absolute inset-y-0 left-0 w-64 border-r border-border bg-surface shadow-xl"
+            className="absolute inset-y-0 left-0 w-72 border-r border-border bg-surface shadow-pop"
             onClick={(e) => {
               e.stopPropagation();
               if (/** @type {HTMLElement} */ (e.target).closest('a')) setMobileOpen(false);
@@ -40,7 +40,7 @@ export function AppShell() {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/80 px-4 py-2.5 backdrop-blur-xl lg:hidden">
           <button className="rounded p-1.5 hover:bg-subtle" onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <Icon name="menu" />
           </button>
@@ -51,7 +51,7 @@ export function AppShell() {
             {banner}
           </div>
         )}
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10">
           <Outlet />
         </main>
       </div>
@@ -77,30 +77,31 @@ function SidebarContent() {
 
   return (
     <nav className="flex h-full flex-col" aria-label="Main">
-      <div className="px-4 pb-3 pt-4">
-        <NavLink to="/projects" aria-label="Analytica home">
+      <div className="px-5 pb-4 pt-5">
+        <NavLink to="/projects" aria-label="Analytica home" className="inline-block">
           <Logo />
         </NavLink>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3">
         {projectId ? (
           <ProjectNav projectId={projectId} />
         ) : (
           <ul className="space-y-0.5">
+            <li className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/80">Workspace</li>
             <NavItem to="/projects" icon="projects" label="Projects" />
             <NavItem to="/recipes" icon="recipes" label="Recipes" />
           </ul>
         )}
       </div>
-      <div className="border-t border-border p-2">
+      <div className="border-t border-border p-3">
         {user?.role === 'admin' && (
           <ul className="space-y-0.5">
             <NavItem to="/admin" icon="admin" label="Admin" />
           </ul>
         )}
         <StorageMeter />
-        <div className="flex items-center gap-2 rounded-md px-2 py-2">
-          <NavLink to="/account" className="flex min-w-0 flex-1 items-center gap-2 rounded hover:text-accent" title="Account">
+        <div className="mt-1 flex items-center gap-1.5 rounded-xl border border-border bg-subtle/50 p-1.5">
+          <NavLink to="/account" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 transition hover:bg-surface" title="Account">
             <Avatar user={user} />
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium">{user?.display_name}</span>
@@ -108,7 +109,7 @@ function SidebarContent() {
             </span>
           </NavLink>
           <ThemeToggle />
-          <button onClick={logout} className="rounded p-1 text-muted hover:bg-subtle hover:text-fg" title="Sign out" aria-label="Sign out">
+          <button onClick={logout} className="rounded-md p-1.5 text-muted transition hover:bg-danger/10 hover:text-danger" title="Sign out" aria-label="Sign out">
             <Icon name="logout" size={16} />
           </button>
         </div>
@@ -122,15 +123,16 @@ function ProjectNav({ projectId }) {
   const hasData = !!project?.dataset?.current_version_id;
   return (
     <div>
-      <NavLink to="/projects" className="mb-2 flex items-center gap-1 rounded px-2 py-1 text-xs text-muted hover:text-fg">
+      <NavLink to="/projects" className="group mb-3 flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted transition hover:text-fg">
         <Icon name="back" size={14} /> All projects
       </NavLink>
-      <div className="mb-3 px-2">
-        <div className="truncate text-sm font-semibold" title={project?.name}>
+      <div className="mb-4 rounded-lg border border-border bg-subtle/60 px-3 py-2.5">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">Project</div>
+        <div className="mt-0.5 truncate text-sm font-semibold" title={project?.name}>
           {project?.name ?? '…'}
         </div>
         {project?.dataset?.current_version && (
-          <div className="truncate text-[11px] text-muted">
+          <div className="mt-0.5 truncate font-mono text-[11px] text-muted">
             {project.dataset.original_filename} · v{project.dataset.current_version.version_no}
           </div>
         )}
@@ -154,15 +156,15 @@ function StorageMeter() {
   const pct = Math.min(100, data.percent);
   const tone = pct >= 90 ? 'bg-danger' : pct >= 75 ? 'bg-warn' : 'bg-accent';
   return (
-    <NavLink to="/account#storage" className="mt-1 block rounded-md px-2 py-2 hover:bg-subtle" title="Storage used by your uploads, versions and exports">
+    <NavLink to="/account#storage" className="mt-1 block rounded-lg px-2.5 py-2 transition hover:bg-subtle" title="Storage used by your uploads, versions and exports">
       <div className="flex justify-between text-[11px] text-muted">
-        <span>Storage</span>
+        <span>Storage · {data.plan ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1) : ''} plan</span>
         <span className="tabular-nums">
           {fmtBytes(data.used_bytes)} / {fmtBytes(data.quota_bytes)}
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-subtle">
-        <div className={`h-full ${tone}`} style={{ width: `${Math.max(pct, 1)}%` }} />
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-subtle">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(pct, 1)}%` }} />
       </div>
     </NavLink>
   );
@@ -179,7 +181,7 @@ function NavItem({ to, icon, label, hint, disabled }) {
   if (disabled) {
     return (
       <li>
-        <span className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted/50" title="Upload a dataset first">
+        <span className="flex cursor-not-allowed items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted/50" title="Upload a dataset first">
           <Icon name={icon} /> {label}
         </span>
       </li>
@@ -191,10 +193,18 @@ function NavItem({ to, icon, label, hint, disabled }) {
         to={to}
         title={hint}
         className={({ isActive }) =>
-          `flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition ${isActive ? 'bg-accent/10 font-medium text-accent' : 'text-fg/80 hover:bg-subtle hover:text-fg'}`
+          `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${isActive ? 'bg-accent/10 font-medium text-accent' : 'text-fg/75 hover:bg-subtle hover:text-fg'}`
         }
       >
-        <Icon name={icon} /> {label}
+        {({ isActive }) => (
+          <>
+            {isActive && <span className="absolute -left-3 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-accent" aria-hidden />}
+            <span className={`transition ${isActive ? '' : 'text-muted group-hover:text-fg'}`}>
+              <Icon name={icon} />
+            </span>
+            {label}
+          </>
+        )}
       </NavLink>
     </li>
   );
@@ -202,7 +212,8 @@ function NavItem({ to, icon, label, hint, disabled }) {
 
 /** @param {{user: any, size?: number}} props */
 export function Avatar({ user, size = 30 }) {
-  if (user?.avatar_url) return <img src={user.avatar_url} alt="" width={size} height={size} className="shrink-0 rounded-full" />;
+  if (user?.avatar_url)
+    return <img src={user.avatar_url} alt="" width={size} height={size} referrerPolicy="no-referrer" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />;
   const initials = (user?.display_name ?? '?')
     .split(/\s+/)
     .map((/** @type {string} */ w) => w[0])
@@ -210,7 +221,10 @@ export function Avatar({ user, size = 30 }) {
     .join('')
     .toUpperCase();
   return (
-    <span className="flex shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent" style={{ width: size, height: size }}>
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full bg-accent font-semibold text-accent-fg"
+      style={{ width: size, height: size, fontSize: Math.max(10, size * 0.38) }}
+    >
       {initials}
     </span>
   );

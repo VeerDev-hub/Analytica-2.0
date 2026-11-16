@@ -1,4 +1,4 @@
-"""Per-account storage limits (default 5 GB, admin-adjustable).
+"""Per-account storage limits (from the user's plan, admin-adjustable per user).
 
 Counted: original uploads, every dataset version (each cleaning step writes one) and
 exports that have not expired. Deleted projects stop counting immediately.
@@ -22,7 +22,7 @@ from app.models import (
     Project,
     User,
 )
-from app.services import app_settings
+from app.services import plans
 from app.storage.backend import get_storage
 
 MB = 1024 * 1024
@@ -33,9 +33,10 @@ class QuotaExceeded(AppError):
     code = "STORAGE_QUOTA_EXCEEDED"
 
 
-def quota_bytes(db: Session, user: User) -> int:
-    mb = user.storage_quota_mb or int(app_settings.get(db, "storage_quota_mb"))
-    return int(mb) * MB
+def quota_bytes(db: Session, user: User) -> int:  # noqa: ARG001 - db kept for callers
+    if user.storage_quota_mb:
+        return int(user.storage_quota_mb) * MB
+    return plans.plan_for(user).storage_gb * 1024 * MB
 
 
 def _live_projects(user_id: uuid.UUID):
@@ -78,6 +79,7 @@ def summary(db: Session, user: User) -> dict:
         "quota_bytes": limit,
         "percent": round(100 * used / limit, 1) if limit else 0.0,
         "custom_quota": user.storage_quota_mb is not None,
+        "plan": plans.plan_for(user).id,
     }
 
 
@@ -92,7 +94,7 @@ def ensure_room(db: Session, user: User, extra_bytes: int = 0) -> None:
         need = f" This file needs {_human(extra_bytes)}." if extra_bytes else ""
         raise QuotaExceeded(
             f"Storage limit reached: you are using {_human(used)} of {_human(limit)}.{need} "
-            "Delete a project or use “Free up space” in Account → Storage.",
+            "Delete a project, use “Free up space” in Account → Storage, or upgrade your plan.",
             details={"used_bytes": used, "quota_bytes": limit, "extra_bytes": extra_bytes},
         )
 

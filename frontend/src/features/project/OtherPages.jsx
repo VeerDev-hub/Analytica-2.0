@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client.js';
 import { BaselineCard, ExportsCard, ReadinessCard } from '../validate/ValidatePanel.jsx';
@@ -33,8 +34,23 @@ export function AssistantPage() {
   return (
     <div>
       <SectionHeader section="assistant" ctx={ctx} />
-      <div className="flex h-[calc(100vh-190px)] min-h-[420px] flex-col overflow-hidden rounded-lg border border-border bg-surface">
-        {status.data && !status.data.enabled ? (
+      <div className="flex h-[calc(100vh-190px)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card">
+        {status.data && !status.data.allowed ? (
+          <div className="m-auto max-w-md p-6 text-center text-sm text-muted">
+            <p className="font-medium text-fg">The assistant is part of the Pro and Business plans</p>
+            <p className="mt-1">You're on the {status.data.plan_name} plan. Everything else in Analytica works without it: cleaning, features, validation and exports.</p>
+            <div className="mt-4 flex justify-center gap-2">
+              {status.data.upgrade_url && (
+                <a href={status.data.upgrade_url} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-md bg-accent px-4 text-sm font-medium text-accent-fg hover:brightness-110">
+                  Upgrade
+                </a>
+              )}
+              <Link to="/account#plan" className="inline-flex h-9 items-center rounded-md border border-border bg-surface px-4 text-sm font-medium hover:bg-subtle">
+                Compare plans
+              </Link>
+            </div>
+          </div>
+        ) : status.data && !status.data.enabled ? (
           <div className="m-auto max-w-md p-6 text-center text-sm text-muted">
             <p className="font-medium text-fg">The assistant is turned off</p>
             <p className="mt-1">

@@ -2,18 +2,20 @@ import json
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser
 from app.chat.orchestrator import chat_enabled, get_client, run_chat
-from app.core.errors import Conflict, NotFound
+from app.core.errors import Conflict, Forbidden, NotFound
+from app.core.ratelimit import check as rate_limit
 from app.models import ChatMessage, ChatSession, Pipeline
 from app.repositories.access import get_chat_session, get_project
 from app.schemas.common import ORM
 from app.services import pipeline as pipeline_service
+from app.services import plans
 
 router = APIRouter(tags=["chat"])
 
@@ -45,9 +47,28 @@ def _chat_on(db) -> bool:
     return chat_enabled() and bool(app_settings.get(db, "chat_enabled"))
 
 
+def _require_plan(user) -> None:
+    if not plans.assistant_allowed(user):
+        raise Forbidden(
+            "The assistant is included in the Pro and Business plans.", code="PLAN_REQUIRED"
+        )
+
+
 @router.get("/chat/status")
 def status(user: CurrentUser, db: DB) -> dict:
-    return {"enabled": _chat_on(db)}
+    from app.services import app_settings
+
+    plan = plans.plan_for(user)
+    return {
+        "enabled": _chat_on(db),
+        "allowed": plans.assistant_allowed(user),
+        "plan": plan.id,
+        "plan_name": plan.name,
+        "daily_limit": None
+        if user.role == "admin"
+        else plans.ASSISTANT_DAILY_LIMIT.get(plan.id, 0),
+        "upgrade_url": app_settings.get(db, "upgrade_url") or None,
+    }
 
 
 @router.get("/projects/{project_id}/chat/sessions", response_model=list[SessionOut])
@@ -65,6 +86,7 @@ def list_sessions(project_id: uuid.UUID, user: CurrentUser, db: DB) -> list[Chat
 
 @router.post("/projects/{project_id}/chat/sessions", response_model=SessionOut, status_code=201)
 def create_session(project_id: uuid.UUID, user: CurrentUser, db: DB) -> ChatSession:
+    _require_plan(user)
     project = get_project(db, user, project_id)
     s = ChatSession(project_id=project.id, user_id=user.id)
     db.add(s)
@@ -86,8 +108,15 @@ def messages(session_id: uuid.UUID, user: CurrentUser, db: DB) -> list[ChatMessa
 
 
 @router.post("/chat/sessions/{session_id}/messages")
-def ask(session_id: uuid.UUID, body: AskIn, user: CurrentUser, db: DB) -> StreamingResponse:
+def ask(
+    session_id: uuid.UUID, body: AskIn, request: Request, user: CurrentUser, db: DB
+) -> StreamingResponse:
     """SSE stream: text deltas, tool calls with their query/rows, then `done`."""
+    _require_plan(user)
+    rate_limit(request, "chat:minute", limit=20, window_s=60, ident=str(user.id))
+    if user.role != "admin":
+        daily = plans.ASSISTANT_DAILY_LIMIT.get(plans.plan_for(user).id, 0)
+        rate_limit(request, "chat:day", limit=daily, window_s=86400, ident=str(user.id))
     s, project = get_chat_session(db, user, session_id)
     get_client()  # raises 503 CHAT_DISABLED before the stream starts
     if not _chat_on(db):

@@ -42,7 +42,9 @@ Also included:
 - **Versioned datasets.** Every pipeline step produces an immutable Parquet version. You can undo, redo, reorder, reset, or switch back to any earlier version.
 - **Recipes.** Save a pipeline and apply it to another project.
 - **Background jobs.** Ingest, pipeline runs, baselines and exports run in Celery. Progress is streamed to the UI.
-- **Accounts.** Email/password sign-in plus optional Google and GitHub OAuth, per-user storage quotas, and account deletion.
+- **Accounts.** Email/password sign-in plus optional Google and GitHub OAuth, and account deletion. Sign-up checks password strength and treats aliases of one mailbox (`+tag`, Gmail dots) as the same account. It refuses temporary email: ~108k known disposable domains (refresh with `python scripts/update_disposable_domains.py`), domains that don't exist or can't receive mail, and new temp-mail domains detected by their mail servers (MX lookup; `EMAIL_DNS_CHECK=false` turns it off).
+- **Plans.** Free (3 GB storage), Pro (25 GB, AI assistant) and Business (100 GB, AI assistant, higher daily limit). Defined in [`backend/app/services/plans.py`](backend/app/services/plans.py); admins assign plans per user and can set an "Upgrade" link (payment page) in Admin → Settings. Billing itself is not integrated.
+- **Rate limiting.** Per-IP and per-account limits on sign-in, sign-up, password changes, uploads and assistant messages, counted in Redis (falls back to in-process counters if Redis is down).
 - **Admin console.** Usage statistics, user management, app settings, and an estimate of LLM cost.
 
 ### Pipeline steps
@@ -208,6 +210,8 @@ Settings are read from environment variables (see [`backend/app/core/config.py`]
 | `GOOGLE_CLIENT_ID` / `_SECRET` | empty | Google sign-in appears only when both are set |
 | `GITHUB_CLIENT_ID` / `_SECRET` | empty | GitHub sign-in appears only when both are set |
 | `MAX_UPLOAD_MB` | `200` | Upload size limit |
+| `RATE_LIMIT_ENABLED` | `true` | Turn request rate limits off (tests do this) |
+| `TRUST_PROXY` | `true` | Read the client IP from `X-Forwarded-For` (ALB/CloudFront, Vite proxy). Set to `false` if the API is exposed directly. |
 | `MAX_ROWS` | `2000000` | Row limit per dataset |
 
 OAuth callback URLs to register with each provider:

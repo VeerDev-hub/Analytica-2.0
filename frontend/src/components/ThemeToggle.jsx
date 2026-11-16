@@ -9,7 +9,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setMode(next)}
-      className="rounded p-1 text-muted hover:bg-subtle hover:text-fg"
+      className="rounded-md p-1.5 text-muted transition hover:bg-subtle hover:text-fg"
       title={`Switch to ${next} mode`}
       aria-label={`Switch to ${next} mode`}
     >

@@ -27,6 +27,7 @@ class UserOut(ORM):
     display_name: str
     avatar_url: str | None = None
     role: str
+    plan: str = "free"
     created_at: datetime
     providers: list[str] = []
     has_password: bool = True

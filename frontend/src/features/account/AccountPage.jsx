@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client.js';
+import { api, apiFetch } from '../../api/client.js';
 import { useAuthStore } from '../../store/auth.js';
 import { useThemeStore } from '../../store/theme.js';
 import { Badge, Button, Card, ErrorBox, Field, Input, Modal, Spinner } from '../../components/ui.jsx';
-import { GitHubIcon, GoogleIcon } from '../../components/icons.jsx';
+import { GitHubIcon, GoogleIcon, Icon } from '../../components/icons.jsx';
 import { PageHeader } from '../../components/PageHeader.jsx';
 import { Avatar, fmtBytes, useStorage } from '../../app/AppShell.jsx';
+import { PasswordField } from '../../components/PasswordField.jsx';
+import { PlanCards, planName } from '../plans/PlanCards.jsx';
 import { Segmented } from '../project/ExplorePage.jsx';
 
 export function AccountPage() {
@@ -18,6 +20,9 @@ export function AccountPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader title="Account" description="Your profile, how you sign in, how the app looks, and how much storage you use." />
+      <div className="mb-4">
+        <PlanCard u={u} />
+      </div>
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <ProfileCard u={u} />
@@ -48,7 +53,7 @@ function ProfileCard({ u }) {
   return (
     <Card title="Profile">
       <div className="flex items-center gap-4">
-        <Avatar user={u} size={52} />
+        <AvatarEditor u={u} />
         <div className="min-w-0">
           <div className="truncate text-sm text-muted">{u.email}</div>
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -75,6 +80,110 @@ function ProfileCard({ u }) {
       <ErrorBox error={save.error} />
       <p className="mt-3 text-xs text-muted">Your email is your sign-in name and can’t be changed here.</p>
     </Card>
+  );
+}
+
+/** Center-crops an image file to a square WebP (falls back to PNG) so uploads are small and EXIF-free. */
+async function toSquareImage(/** @type {File} */ file, size = 256) {
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
+  bmp.close();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
+  if (blob && /** @type {Blob} */ (blob).type === 'image/webp') return /** @type {Blob} */ (blob);
+  return /** @type {Blob} */ (await new Promise((resolve) => canvas.toBlob(resolve, 'image/png')));
+}
+
+/** Profile picture with upload / remove. */
+function AvatarEditor({ u }) {
+  const qc = useQueryClient();
+  const setSession = useAuthStore((s) => s.setSession);
+  const token = useAuthStore((s) => s.accessToken);
+  const input = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const [error, setError] = useState(/** @type {any} */ (null));
+  const apply = (/** @type {any} */ me) => {
+    qc.setQueryData(['me'], me);
+    setSession({ access_token: token ?? '', user: me });
+  };
+  const upload = useMutation({
+    mutationFn: async (/** @type {File} */ file) => {
+      if (!file.type.startsWith('image/')) throw new Error('Choose an image file (PNG, JPEG, WebP…).');
+      if (file.size > 15 * 1024 * 1024) throw new Error('That image is over 15 MB. Pick a smaller one.');
+      let blob;
+      try {
+        blob = await toSquareImage(file);
+      } catch {
+        throw new Error('Could not read that image. Try a PNG or JPEG.');
+      }
+      const form = new FormData();
+      form.append('file', blob, blob.type === 'image/webp' ? 'avatar.webp' : 'avatar.png');
+      return apiFetch('/auth/me/avatar', { method: 'POST', body: form });
+    },
+    onMutate: () => setError(null),
+    onSuccess: apply,
+    onError: (e) => setError(e),
+  });
+  const remove = useMutation({ mutationFn: () => api.del('/auth/me/avatar'), onSuccess: apply, onError: (e) => setError(e) });
+  const busy = upload.isPending || remove.isPending;
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => input.current?.click()}
+        disabled={busy}
+        className="group relative rounded-full focus-visible:outline-offset-4"
+        title="Change profile picture"
+        aria-label="Change profile picture"
+      >
+        <Avatar user={u} size={72} />
+        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+          {busy ? <Spinner size={18} /> : <Icon name="camera" size={20} />}
+        </span>
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-accent-fg shadow-card ring-2 ring-surface transition group-hover:scale-110">
+          <Icon name="camera" size={12} />
+        </span>
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) upload.mutate(f);
+        }}
+      />
+      {u.avatar_url && (
+        <button type="button" onClick={() => remove.mutate()} disabled={busy} className="text-[11px] text-muted transition hover:text-danger">
+          Remove
+        </button>
+      )}
+      {error && <p className="max-w-[9rem] text-center text-[11px] text-danger">{error.message}</p>}
+    </div>
+  );
+}
+
+function PlanCard({ u }) {
+  const { data: storage } = useStorage();
+  return (
+    <div id="plan">
+      <Card title="Plan">
+        <p className="text-sm">
+          You're on the <strong>{planName(u.plan)}</strong> plan
+          {storage ? <> with {fmtBytes(storage.quota_bytes)} of storage</> : null}
+          {u.plan === 'free' ? '. The AI assistant is included in Pro and Business.' : '. The AI assistant is included.'}
+        </p>
+        <div className="mt-4">
+          <PlanCards current={u.plan} compact />
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -156,9 +265,7 @@ function SignInCard({ u }) {
           {u.has_password && (
             <Field label="Current password">{(id) => <Input id={id} type="password" required value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />}</Field>
           )}
-          <Field label="New password" hint="At least 8 characters">
-            {(id) => <Input id={id} type="password" required minLength={8} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />}
-          </Field>
+          <PasswordField label="New password" value={next} onChange={setNext} email={u.email} name={u.display_name} />
           <ErrorBox error={change.error} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>

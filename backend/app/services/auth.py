@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core import emails, passwords
 from app.core.config import get_settings
 from app.core.errors import Conflict, Forbidden, Unauthorized
 from app.core.security import hash_password, needs_rehash, verify_password
@@ -25,8 +26,16 @@ def register(db: Session, email: str, password: str, display_name: str | None) -
         raise Forbidden(
             "New sign-ups are closed. Ask the administrator for access.", code="SIGNUPS_CLOSED"
         )
+    email = email.strip().lower()
+    emails.check_allowed(
+        email,
+        app_settings.get(db, "blocked_email_domains") or "",
+        check_dns=get_settings().email_dns_check,
+    )
+    passwords.validate(password, email=email, name=display_name)
     user = User(
-        email=email.strip().lower(),
+        email=email,
+        email_canonical=emails.canonical(email),
         password_hash=hash_password(password),
         display_name=(display_name or email.split("@")[0]).strip()[:120],
         last_login_at=datetime.now(UTC),
@@ -37,7 +46,11 @@ def register(db: Session, email: str, password: str, display_name: str | None) -
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise Conflict("An account with this email already exists", code="EMAIL_TAKEN") from exc
+        raise Conflict(
+            "An account with this email already exists. Addresses that differ only by a "
+            "+tag or by dots (Gmail) count as the same mailbox.",
+            code="EMAIL_TAKEN",
+        ) from exc
     return user
 
 

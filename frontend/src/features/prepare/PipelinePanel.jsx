@@ -43,7 +43,7 @@ export function PipelinePanel({ project }) {
 
   return (
     <div className="flex w-full flex-col gap-3" aria-label="Pipeline">
-      <div className="rounded-lg border border-border bg-surface">
+      <div className="rounded-xl border border-border bg-surface shadow-card">
         <header className="flex items-center justify-between border-b border-border px-3 py-2">
           <h2 className="text-sm font-semibold">Steps applied</h2>
           <div className="flex gap-1">

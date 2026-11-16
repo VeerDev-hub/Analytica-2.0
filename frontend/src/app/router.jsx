@@ -1,6 +1,7 @@
 import { Navigate, createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AppShell } from './AppShell.jsx';
 import { AuthGate } from './AuthGate.jsx';
+import { HomePage } from '../features/home/HomePage.jsx';
 import { AuthPage, OAuthCallback } from '../features/auth/AuthPage.jsx';
 import { ProjectsPage } from '../features/projects/ProjectsPage.jsx';
 import { ProjectIndex, ProjectLayout } from '../features/project/ProjectLayout.jsx';
@@ -13,16 +14,18 @@ import { AdminPage } from '../features/admin/AdminPage.jsx';
 import { AccountPage } from '../features/account/AccountPage.jsx';
 
 const router = createBrowserRouter([
+  // Public pages
+  { path: '/', element: <HomePage /> },
   { path: '/login', element: <AuthPage mode="login" /> },
   { path: '/register', element: <AuthPage mode="register" /> },
   { path: '/auth/callback', element: <OAuthCallback /> },
+  // Signed-in app
   {
     element: <AuthGate />,
     children: [
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <Navigate to="/projects" replace /> },
           { path: 'projects', element: <ProjectsPage /> },
           {
             path: 'projects/:projectId',

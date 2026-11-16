@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCreateProject, useDeleteProject, useProjects } from '../../api/hooks.js';
-import { Button, ErrorBox, Field, Input, Modal, Spinner, fmt } from '../../components/ui.jsx';
+import { Button, ErrorBox, Field, Input, Modal, Spinner, Stat, fmt } from '../../components/ui.jsx';
+import { useAuthStore } from '../../store/auth.js';
+import { fmtBytes, useStorage } from '../../app/AppShell.jsx';
 import { Icon } from '../../components/icons.jsx';
 import { PageHeader } from '../../components/PageHeader.jsx';
 
@@ -16,11 +18,18 @@ export function ProjectsPage() {
   const { data: projects, isPending, error } = useProjects();
   const [open, setOpen] = useState(false);
   const del = useDeleteProject();
+  const user = useAuthStore((s) => s.user);
+  const { data: storage } = useStorage();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const first = user?.display_name?.split(/\s+/)[0];
+  const total = (/** @type {string} */ k) => (projects ?? []).reduce((a, /** @type {any} */ p) => a + (p[k] ?? 0), 0);
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
-        title="Projects"
+        eyebrow={first ? `${greeting}, ${first}` : greeting}
+        title="Your projects"
         description="Each project holds one dataset, the steps that clean it, and everything you export from it."
         actions={
           <Button variant="primary" onClick={() => setOpen(true)}>
@@ -31,16 +40,26 @@ export function ProjectsPage() {
       <ErrorBox error={error} />
       {isPending && <Spinner />}
 
+      {projects?.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Projects" value={fmt.int(projects.length)} sub={`${projects.filter((/** @type {any} */ p) => p.dataset_name).length} with data`} />
+          <Stat label="Rows under management" value={fmt.int(total('rows'))} sub={`${fmt.int(total('columns'))} columns in total`} />
+          <Stat label="Recorded steps" value={fmt.int(total('steps'))} sub="Reversible and replayable" />
+          <Stat label="Storage" value={storage ? fmtBytes(storage.used_bytes) : '—'} sub={storage ? `of ${fmtBytes(storage.quota_bytes)} · ${Math.round(storage.percent)}% used` : ' '} />
+        </div>
+      )}
+
       {projects?.length === 0 && (
-        <div className="rounded-xl border border-border bg-surface p-8">
+        <div className="rounded-xl border border-border bg-surface p-8 shadow-card">
+          <div>
           <h2 className="text-lg font-semibold">From raw file to model-ready data</h2>
           <p className="mt-1 text-sm text-muted">No code needed. Here’s how a project works:</p>
           <ol className="mt-6 grid gap-4 md:grid-cols-4">
             {HOW.map(([icon, t, d], i) => (
-              <li key={t} className="rounded-lg bg-subtle/60 p-4">
+              <li key={t} className="rounded-lg border border-border bg-subtle/50 p-4">
                 <div className="flex items-center gap-2 text-accent">
                   <Icon name={/** @type {any} */ (icon)} />
-                  <span className="text-xs font-semibold">STEP {i + 1}</span>
+                  <span className="font-mono text-[11px] font-medium tracking-wider">STEP 0{i + 1}</span>
                 </div>
                 <div className="mt-2 font-medium">{t}</div>
                 <p className="mt-1 text-xs text-muted">{d}</p>
@@ -50,45 +69,53 @@ export function ProjectsPage() {
           <Button variant="primary" className="mt-6" onClick={() => setOpen(true)}>
             Create your first project
           </Button>
+          </div>
         </div>
       )}
 
       {projects?.length > 0 && (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {projects.map((/** @type {any} */ p) => (
             <li key={p.id} className="group relative">
-              <Link to={`/projects/${p.id}`} className="flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition hover:border-accent/60 hover:shadow-sm">
+              <Link
+                to={`/projects/${p.id}`}
+                className="flex h-full flex-col rounded-xl border border-border bg-surface p-5 shadow-card transition-colors hover:border-accent/50"
+              >
                 <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
                     <Icon name="data" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="truncate font-semibold">{p.name}</h2>
-                    <p className="truncate text-xs text-muted">{p.dataset_name ?? 'No data yet'}</p>
+                    <h2 className="truncate font-semibold tracking-tight">{p.name}</h2>
+                    <p className="truncate font-mono text-[11px] text-muted">{p.dataset_name ?? 'No data yet'}</p>
                   </div>
                 </div>
                 {p.description && <p className="mt-3 line-clamp-2 text-sm text-muted">{p.description}</p>}
-                <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center text-xs">
+                <div className="min-h-4 flex-1" />
+                <dl className="grid grid-cols-3 gap-2 rounded-xl bg-subtle/60 p-3 pt-2.5 text-xs">
                   <div>
-                    <dt className="text-muted">Rows</dt>
-                    <dd className="font-medium tabular-nums">{fmt.int(p.rows)}</dd>
+                    <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">Rows</dt>
+                    <dd className="mt-0.5 font-mono text-sm font-medium tabular-nums">{fmt.int(p.rows)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted">Columns</dt>
-                    <dd className="font-medium tabular-nums">{fmt.int(p.columns)}</dd>
+                    <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">Columns</dt>
+                    <dd className="mt-0.5 font-mono text-sm font-medium tabular-nums">{fmt.int(p.columns)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted">Steps</dt>
-                    <dd className="font-medium tabular-nums">{p.steps}</dd>
+                    <dt className="text-[10px] font-medium uppercase tracking-wider text-muted">Steps</dt>
+                    <dd className="mt-0.5 font-mono text-sm font-medium tabular-nums">{p.steps}</dd>
                   </div>
                 </dl>
                 <div className="mt-3 flex items-center justify-between text-xs text-muted">
-                  <span className="truncate">{p.target_column ? `Predicting ${p.target_column}` : 'No target yet'}</span>
+                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.target_column ? 'bg-ok' : 'bg-muted/40'}`} />
+                    {p.target_column ? `Predicting ${p.target_column}` : 'No target yet'}
+                  </span>
                   <span>{new Date(p.updated_at).toLocaleDateString()}</span>
                 </div>
               </Link>
               <button
-                className="absolute right-3 top-3 rounded p-1 text-muted opacity-0 hover:bg-subtle hover:text-danger focus:opacity-100 group-hover:opacity-100"
+                className="absolute right-3 top-3 rounded-md p-1 text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger focus:opacity-100 group-hover:opacity-100"
                 onClick={() => window.confirm(`Delete "${p.name}"? Its data and exports are removed.`) && del.mutate(p.id)}
                 aria-label={`Delete ${p.name}`}
                 title="Delete project"

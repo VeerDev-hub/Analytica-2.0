@@ -178,14 +178,30 @@ def complete(db: Session, name: str, code: str) -> User:
     ).first()
     user = db.get(User, link.user_id) if link else None
     if user is None:
-        # Same verified email as an existing account: link instead of duplicating.
-        user = db.scalars(select(User).where(User.email == email)).first()
+        # Same verified mailbox as an existing account: link instead of duplicating.
+        from app.core import emails
+
+        canon = emails.canonical(email)
+        user = db.scalars(
+            select(User).where((User.email == email) | (User.email_canonical == canon))
+        ).first()
     if user is None:
         if not app_settings.get(db, "signups_open"):
             raise Forbidden(
                 "New sign-ups are closed. Ask the administrator for access.", code="SIGNUPS_CLOSED"
             )
-        user = User(email=email, password_hash=None, display_name=display[:120], avatar_url=avatar)
+        # Google/GitHub verified this address, so skip the DNS layer; still refuse
+        # temp-mail domains (GitHub allows them as account emails).
+        emails.check_allowed(
+            email, app_settings.get(db, "blocked_email_domains") or "", check_dns=False
+        )
+        user = User(
+            email=email,
+            email_canonical=canon,
+            password_hash=None,
+            display_name=display[:120],
+            avatar_url=avatar,
+        )
         db.add(user)
         db.flush()
     if not user.is_active:

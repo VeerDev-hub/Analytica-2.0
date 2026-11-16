@@ -59,7 +59,7 @@ export function DataGrid({ versionId, profiles, onSelectColumn, selected, height
   const pageEnd = Math.min(offset + PAGE, total);
 
   return (
-    <div className="flex min-h-0 flex-col rounded-lg border border-border bg-surface">
+    <div className="flex min-h-0 flex-col rounded-xl border border-border bg-surface shadow-card">
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
         <Select aria-label="Filter column" className="w-44" value={draft.column} onChange={(e) => setDraft({ ...draft, column: e.target.value })}>
           <option value="">Filter column…</option>

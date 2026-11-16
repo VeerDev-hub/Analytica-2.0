@@ -14,11 +14,17 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = uuid_pk()
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
+    # One mailbox → one account: plus-tags and Gmail dots removed (app/core/emails.py).
+    email_canonical: Mapped[str | None] = mapped_column(String(320), unique=True, index=True)
     # NULL for accounts created through Google/GitHub that never set a password.
     password_hash: Mapped[str | None] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(500))
-    # Per-user storage limit in MB; NULL = the app-wide default (admin setting).
+    # free | pro | business (app/services/plans.py). Decides storage and assistant access.
+    plan: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="free", server_default="free"
+    )
+    # Per-user storage override in MB; NULL = the plan's limit.
     storage_quota_mb: Mapped[int | None] = mapped_column(Integer)
     role: Mapped[str] = mapped_column(
         String(16), nullable=False, default="user", server_default="user"

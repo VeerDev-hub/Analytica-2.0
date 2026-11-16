@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Request, Response
+import re
+import secrets
+import uuid
+
+from fastapi import APIRouter, File, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentUser
+from app.core import passwords
 from app.core.config import get_settings
-from app.core.errors import AppError, Conflict, Unauthorized, ValidationFailed
+from app.core.errors import AppError, Conflict, NotFound, Unauthorized, ValidationFailed
+from app.core.ratelimit import check as rate_limit
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -70,13 +76,16 @@ def providers(db: DB) -> dict:
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)
-def register(body: RegisterIn, response: Response, db: DB) -> TokenOut:
+def register(body: RegisterIn, request: Request, response: Response, db: DB) -> TokenOut:
+    rate_limit(request, "register:ip", limit=5, window_s=3600)
     user = auth_service.register(db, body.email, body.password, body.display_name)
     return _issue(db, response, user)
 
 
 @router.post("/login", response_model=TokenOut)
-def login(body: LoginIn, response: Response, db: DB) -> TokenOut:
+def login(body: LoginIn, request: Request, response: Response, db: DB) -> TokenOut:
+    rate_limit(request, "login:ip", limit=20, window_s=600)
+    rate_limit(request, "login:email", limit=8, window_s=900, ident=body.email)
     user = auth_service.authenticate(db, body.email, body.password)
     return _issue(db, response, user)
 
@@ -106,7 +115,8 @@ def me(user: CurrentUser, db: DB) -> UserOut:
 
 # ------------------------------------------------------------------ OAuth
 @router.get("/oauth/{provider}/start", include_in_schema=False)
-def oauth_start(provider: str) -> RedirectResponse:
+def oauth_start(provider: str, request: Request) -> RedirectResponse:
+    rate_limit(request, "oauth:ip", limit=20, window_s=600)
     url, state = oauth.start(provider)
     resp = RedirectResponse(url, status_code=302)
     resp.set_cookie(
@@ -168,13 +178,90 @@ def update_me(body: ProfilePatch, user: CurrentUser, db: DB) -> UserOut:
     return user_out(db, user)
 
 
+AVATAR_MAX_BYTES = 2 * 1024 * 1024
+# Magic bytes -> (extension, content type). The browser crops to a square WebP/PNG/JPEG.
+_AVATAR_TYPES = {
+    bytes.fromhex("89504e470d0a1a0a"): ("png", "image/png"),
+    bytes.fromhex("ffd8ff"): ("jpg", "image/jpeg"),
+}
+_AVATAR_NAME = re.compile(r"^[A-Za-z0-9_-]{16,64}\.(png|jpg|webp)$")
+_AVATAR_CT = {"png": "image/png", "jpg": "image/jpeg", "webp": "image/webp"}
+
+
+def _avatar_kind(data: bytes) -> tuple[str, str] | None:
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp", "image/webp"
+    for magic, kind in _AVATAR_TYPES.items():
+        if data.startswith(magic):
+            return kind
+    return None
+
+
+def _avatar_prefix(user_id: uuid.UUID) -> str:
+    return f"users/{user_id}/avatar/"
+
+
+def _own_avatar(user: User) -> bool:
+    return bool(user.avatar_url and user.avatar_url.startswith(f"/api/v1/auth/avatars/{user.id}/"))
+
+
+@router.post("/me/avatar", response_model=UserOut)
+def upload_avatar(
+    request: Request, user: CurrentUser, db: DB, file: UploadFile = File(...)
+) -> UserOut:
+    """Set a profile picture (PNG, JPEG or WebP, up to 2 MB). Replaces any previous one."""
+    rate_limit(request, "avatar:user", limit=20, window_s=3600, ident=str(user.id))
+    data = file.file.read(AVATAR_MAX_BYTES + 1)
+    if len(data) > AVATAR_MAX_BYTES:
+        raise ValidationFailed("Image is larger than 2 MB", code="AVATAR_TOO_LARGE")
+    kind = _avatar_kind(data)
+    if kind is None:
+        raise ValidationFailed("Use a PNG, JPEG or WebP image", code="AVATAR_BAD_TYPE")
+    ext, ctype = kind
+    storage = get_storage()
+    storage.delete_prefix(_avatar_prefix(user.id))
+    # Unguessable name: <img> tags can't send the bearer token, so the URL itself is the secret.
+    name = f"{secrets.token_urlsafe(24)}.{ext}"
+    storage.put_bytes(_avatar_prefix(user.id) + name, data, content_type=ctype)
+    user.avatar_url = f"/api/v1/auth/avatars/{user.id}/{name}"
+    db.commit()
+    return user_out(db, user)
+
+
+@router.delete("/me/avatar", response_model=UserOut)
+def delete_avatar(user: CurrentUser, db: DB) -> UserOut:
+    """Remove the profile picture (an uploaded one is deleted; a Google/GitHub one is unlinked)."""
+    if _own_avatar(user):
+        get_storage().delete_prefix(_avatar_prefix(user.id))
+    user.avatar_url = None
+    db.commit()
+    return user_out(db, user)
+
+
+@router.get("/avatars/{user_id}/{name}", include_in_schema=False)
+def get_avatar(user_id: uuid.UUID, name: str) -> Response:
+    if not _AVATAR_NAME.match(name):
+        raise NotFound("Avatar not found")
+    key = _avatar_prefix(user_id) + name
+    storage = get_storage()
+    if not storage.exists(key):
+        raise NotFound("Avatar not found")
+    return Response(
+        storage.get_bytes(key),
+        media_type=_AVATAR_CT[name.rsplit(".", 1)[1]],
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
+
+
 @router.post("/me/password", status_code=204)
-def change_password(body: PasswordIn, user: CurrentUser, db: DB) -> Response:
+def change_password(body: PasswordIn, request: Request, user: CurrentUser, db: DB) -> Response:
     """Change the password, or set one for a Google/GitHub-only account."""
+    rate_limit(request, "password:user", limit=5, window_s=900, ident=str(user.id))
     if user.password_hash is not None and not verify_password(
         body.current_password or "", user.password_hash
     ):
         raise Unauthorized("Current password is wrong", code="BAD_CREDENTIALS")
+    passwords.validate(body.new_password, email=user.email, name=user.display_name)
     user.password_hash = hash_password(body.new_password)
     db.commit()
     return Response(status_code=204)
@@ -206,8 +293,11 @@ def my_storage(user: CurrentUser, db: DB) -> dict:
 
 
 @router.delete("/me", status_code=204)
-def delete_me(body: DeleteAccountIn, response: Response, user: CurrentUser, db: DB) -> Response:
+def delete_me(
+    body: DeleteAccountIn, request: Request, response: Response, user: CurrentUser, db: DB
+) -> Response:
     """Permanently delete the account, its projects, files and chat history."""
+    rate_limit(request, "delete:user", limit=5, window_s=900, ident=str(user.id))
     if body.confirm_email.strip().lower() != user.email.lower():
         raise ValidationFailed(
             "Type your email address exactly to confirm", code="CONFIRM_MISMATCH"

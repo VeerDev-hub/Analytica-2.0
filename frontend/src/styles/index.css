@@ -1,53 +1,84 @@
 @import 'tailwindcss';
 
-/* Design tokens (light / dark). Components use the Tailwind names below, never raw colors. */
+/* Design tokens (light / dark). Components use the Tailwind names below, never raw colors.
+   Palette: cool neutrals, an indigo primary and a cyan secondary accent. */
 :root {
-  --bg: #f8fafc;
+  --bg: #f5f6fa;
   --surface: #ffffff;
-  --subtle: #f1f5f9;
-  --fg: #0f172a;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --accent: #ea580c; /* orange highlight carried over from the Streamlit app */
+  --subtle: #eef0f6;
+  --fg: #0b1020;
+  --muted: #5d6679;
+  --border: #e2e5ee;
+  --accent: #4f46e5;
   --accent-fg: #ffffff;
-  --ok: #15803d;
-  --warn: #b45309;
-  --info: #1d4ed8;
+  --accent-2: #0891b2;
+  --ok: #059669;
+  --warn: #c2700c;
+  --info: #2563eb;
   --danger: #dc2626;
+  --c1: #4f46e5;
+  --c2: #0891b2;
+  --c3: #d97706;
+  --c4: #db2777;
+  --c5: #059669;
+  --c6: #7c3aed;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.14);
+  --shadow-lg: 0 24px 64px -24px rgb(15 23 42 / 0.28);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --bg: #0b1120;
-    --surface: #111827;
-    --subtle: #1e293b;
-    --fg: #e5e7eb;
-    --muted: #94a3b8;
-    --border: #1f2937;
-    --accent: #fb923c;
-    --accent-fg: #1c1206;
-    --ok: #4ade80;
+    --bg: #070a12;
+    --surface: #0d121d;
+    --subtle: #151b29;
+    --fg: #e6e9f2;
+    --muted: #8a93a8;
+    --border: #1d2434;
+    --accent: #8b8cf8;
+    --accent-fg: #0b0d1f;
+    --accent-2: #22d3ee;
+    --ok: #34d399;
     --warn: #fbbf24;
     --info: #60a5fa;
     --danger: #f87171;
+    --c1: #8b8cf8;
+    --c2: #22d3ee;
+    --c3: #fbbf24;
+    --c4: #f472b6;
+    --c5: #34d399;
+    --c6: #c084fc;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-lg: 0 24px 64px -24px rgb(0 0 0 / 0.8);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --bg: #0b1120;
-  --surface: #111827;
-  --subtle: #1e293b;
-  --fg: #e5e7eb;
-  --muted: #94a3b8;
-  --border: #1f2937;
-  --accent: #fb923c;
-  --accent-fg: #1c1206;
-  --ok: #4ade80;
+  --bg: #070a12;
+  --surface: #0d121d;
+  --subtle: #151b29;
+  --fg: #e6e9f2;
+  --muted: #8a93a8;
+  --border: #1d2434;
+  --accent: #8b8cf8;
+  --accent-fg: #0b0d1f;
+  --accent-2: #22d3ee;
+  --ok: #34d399;
   --warn: #fbbf24;
   --info: #60a5fa;
   --danger: #f87171;
+  --c1: #8b8cf8;
+  --c2: #22d3ee;
+  --c3: #fbbf24;
+  --c4: #f472b6;
+  --c5: #34d399;
+  --c6: #c084fc;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 24px 64px -24px rgb(0 0 0 / 0.8);
   color-scheme: dark;
 }
 
@@ -60,16 +91,51 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
+  --color-accent-2: var(--accent-2);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-info: var(--info);
   --color-danger: var(--danger);
+  --shadow-card: var(--shadow-md);
+  --shadow-soft: var(--shadow-sm);
+  --shadow-pop: var(--shadow-lg);
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+  letter-spacing: -0.006em;
+}
+
+/* Numbers line up in tables, stats and meters everywhere. */
+.tabular-nums,
+.font-mono {
+  font-feature-settings: 'tnum', 'zero';
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 25%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+/* Quiet scrollbars that follow the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted) 35%, transparent) transparent;
 }
 
 /* Hairline borders on table cells inside the data grid. */

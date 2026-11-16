@@ -67,7 +67,7 @@ def test_last_admin_cannot_delete_self(client, monkeypatch):
 def test_storage_usage_and_quota(client, auth, monkeypatch):
     p = upload_csv(client, auth, CSV)
     st = client.get("/api/v1/auth/me/storage", headers=auth).json()
-    assert st["quota_bytes"] == 5120 * 1024 * 1024
+    assert st["quota_bytes"] == 3 * 1024**3  # free plan
     assert st["used_bytes"] > 0 and st["projects"][0]["id"] == p["id"]
 
     # Shrink the limit below current usage: new uploads, steps and exports are refused.
@@ -124,7 +124,7 @@ def test_admin_sets_user_quota(client, monkeypatch, quota):
     admin = register(client, "boss@example.com")
     register(client, "bob@example.com")
     bob = client.get("/api/v1/admin/users?q=bob", headers=admin).json()["items"][0]
-    assert bob["storage_quota"] == 5120 * 1024 * 1024 and bob["custom_quota_mb"] is None
+    assert bob["storage_quota"] == 3 * 1024**3 and bob["custom_quota_mb"] is None  # free plan
     r = client.patch(
         f"/api/v1/admin/users/{bob['id']}", headers=admin, json={"storage_quota_mb": quota}
     ).json()
@@ -132,3 +132,37 @@ def test_admin_sets_user_quota(client, monkeypatch, quota):
         assert r["custom_quota_mb"] == 1 and r["storage_quota"] == 1024 * 1024
     else:
         assert r["custom_quota_mb"] is None
+
+
+PNG_1PX = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+    "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082"
+)
+
+
+def test_avatar_upload_serve_and_remove(client, auth):
+    bad = client.post(
+        "/api/v1/auth/me/avatar",
+        headers=auth,
+        files={"file": ("x.png", b"not an image", "image/png")},
+    )
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "AVATAR_BAD_TYPE"
+    big = client.post(
+        "/api/v1/auth/me/avatar",
+        headers=auth,
+        files={"file": ("x.png", PNG_1PX + b"\0" * (2 * 1024 * 1024), "image/png")},
+    )
+    assert big.status_code == 422
+    r = client.post(
+        "/api/v1/auth/me/avatar", headers=auth, files={"file": ("me.png", PNG_1PX, "image/png")}
+    )
+    assert r.status_code == 200, r.text
+    url = r.json()["avatar_url"]
+    assert url.startswith("/api/v1/auth/avatars/") and url.endswith(".png")
+    img = client.get(url)  # no auth header: <img> tags can't send one
+    assert img.status_code == 200 and img.content == PNG_1PX
+    assert img.headers["content-type"] == "image/png"
+    assert client.get(url.replace(".png", "x.png")).status_code == 404
+    gone = client.delete("/api/v1/auth/me/avatar", headers=auth)
+    assert gone.json()["avatar_url"] is None
+    assert client.get(url).status_code == 404

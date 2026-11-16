@@ -34,7 +34,7 @@ export function ColumnInspector({ profile, alerts, onClose, children }) {
       ];
 
   return (
-    <aside className="flex w-full flex-col gap-4 rounded-lg border border-border bg-surface p-4 lg:w-80" aria-label={`Column ${profile.name}`}>
+    <aside className="flex w-full flex-col gap-4 rounded-xl border border-border bg-surface shadow-card p-4 lg:w-80" aria-label={`Column ${profile.name}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="truncate font-semibold" title={profile.name}>

@@ -23,7 +23,7 @@ from app.models import (
     Project,
     User,
 )
-from app.services import app_settings, oauth, quota
+from app.services import app_settings, oauth, plans, quota
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -141,6 +141,7 @@ class UserRow(BaseModel):
     display_name: str
     avatar_url: str | None
     role: str
+    plan: str
     is_active: bool
     created_at: datetime
     last_login_at: datetime | None
@@ -153,6 +154,7 @@ class UserRow(BaseModel):
 
 class UserPatch(BaseModel):
     role: str | None = None
+    plan: str | None = None
     is_active: bool | None = None
     # MB; 0 or negative resets to the app-wide default.
     storage_quota_mb: int | None = None
@@ -181,6 +183,7 @@ def _row(db, u: User) -> UserRow:
         display_name=u.display_name,
         avatar_url=u.avatar_url,
         role=u.role,
+        plan=u.plan,
         is_active=u.is_active,
         created_at=u.created_at,
         last_login_at=u.last_login_at,
@@ -219,6 +222,10 @@ def patch_user(user_id: uuid.UUID, body: UserPatch, admin: Admin, db: DB) -> Use
         if body.role not in ("user", "admin"):
             raise ValidationFailed("role must be user or admin")
         u.role = body.role
+    if body.plan is not None:
+        if body.plan not in plans.PLANS:
+            raise ValidationFailed("Unknown plan")
+        u.plan = body.plan
     if body.is_active is not None:
         u.is_active = body.is_active
     if body.storage_quota_mb is not None:
