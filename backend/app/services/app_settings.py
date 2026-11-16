@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.errors import ValidationFailed
 from app.models import AppSetting
 
-CHAT_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+CHAT_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 
 

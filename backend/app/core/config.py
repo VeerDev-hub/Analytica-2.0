@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Chat (Phase 4). Chat endpoints return 503 until a key is configured.
     gemini_api_key: str | None = None
-    chat_model: str = "gemini-2.5-flash"
+    chat_model: str = "gemini-3.5-flash"
     chat_effort: str = "medium"  # low | medium | high | xhigh | max
     chat_max_tokens: int = 16000
 

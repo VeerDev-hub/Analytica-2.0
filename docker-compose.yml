@@ -17,7 +17,7 @@ x-backend-env: &backend-env
   JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-jwt-secret-change-me-0123456789}
   # Chat (Phase 4) is disabled until a key is set in .env
   GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  CHAT_MODEL: ${CHAT_MODEL:-gemini-2.5-flash}
+  CHAT_MODEL: ${CHAT_MODEL:-gemini-3.5-flash}
   ADMIN_EMAILS: ${ADMIN_EMAILS:-}
   PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:5173}
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

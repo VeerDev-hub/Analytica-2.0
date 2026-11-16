@@ -202,7 +202,7 @@ Settings are read from environment variables (see [`backend/app/core/config.py`]
 | `DATABASE_URL` | local Postgres | On AWS it is assembled from `DB_HOST` / `DB_PASSWORD` instead |
 | `S3_BUCKET`, `S3_ENDPOINT_URL` | `analytica-data`, SeaweedFS | Leave the endpoint empty on AWS to use the default endpoint and the IAM role |
 | `GEMINI_API_KEY` | empty | Chat endpoints return `503` until this is set |
-| `CHAT_MODEL` | `gemini-2.5-flash` | Model used by the Assistant |
+| `CHAT_MODEL` | `gemini-3.5-flash` | Model used by the Assistant |
 | `ADMIN_EMAILS` | empty | These users become admins when they sign in |
 | `PUBLIC_APP_URL` | `http://localhost:5173` | Base URL for OAuth redirects |
 | `GOOGLE_CLIENT_ID` / `_SECRET` | empty | Google sign-in appears only when both are set |
