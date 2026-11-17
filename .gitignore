@@ -139,3 +139,4 @@ backend.hcl
 !*.tfvars.example
 
 .legacy/
+docs/Deployment

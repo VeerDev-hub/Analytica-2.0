@@ -1,39 +1,47 @@
-// Analytica mark: an "A" whose crossbar is a three-node pipeline (data flowing through
-// steps). The same drawing is used for the favicon (public/favicon.svg).
-import { useId } from 'react';
+// Analytica brand logo. The artwork lives in public/1.svg (for light mode) and public/2.svg
+// (for dark mode); those files are ~2.7 MB each with opaque backgrounds, so the images here are
+// transparent, cropped PNG cuts of them: the "A" mark and the "Analytica Studio" wordmark.
+// public/favicon.svg carries the same mark for both colour schemes.
+import { useEffectiveTheme } from '../store/theme.js';
+import markLight from '../assets/brand/mark-light.png';
+import markDark from '../assets/brand/mark-dark.png';
+import wordmarkLight from '../assets/brand/wordmark-light.png';
+import wordmarkDark from '../assets/brand/wordmark-dark.png';
 
-/** @param {{size?: number, className?: string}} props */
+/** The "A" mark on its own. @param {{size?: number, className?: string}} props */
 export function LogoMark({ size = 32, className }) {
-  // Unique gradient id per instance: a shared id breaks when the first copy is hidden.
-  const gid = `an-bg-${useId().replace(/:/g, '')}`;
+  const dark = useEffectiveTheme() === 'dark';
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" className={className} role="img" aria-label="Analytica">
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#0891b2" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill={`url(#${gid})`} />
-      <path d="M8.5 24.5 L16 7.5 L23.5 24.5" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M11.6 18.5 H20.4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />
-      <circle cx="11.6" cy="18.5" r="2.1" fill="#fff" />
-      <circle cx="16" cy="18.5" r="2.1" fill="#fff" />
-      <circle cx="20.4" cy="18.5" r="2.1" fill="#fff" />
-      <circle cx="16" cy="18.5" r="0.9" fill="#0891b2" />
-    </svg>
+    <img
+      src={dark ? markDark : markLight}
+      width={size}
+      height={size}
+      className={className}
+      alt="Analytica"
+      draggable={false}
+      style={{ width: size, height: size }}
+    />
   );
 }
 
-/** Mark + wordmark. @param {{size?: number, subtitle?: boolean}} props */
+/**
+ * Mark + wordmark side by side, for headers.
+ * `subtitle` is kept for older call sites; the wordmark artwork always includes "Studio".
+ * @param {{size?: number, subtitle?: boolean}} props
+ */
+// eslint-disable-next-line no-unused-vars
 export function Logo({ size = 28, subtitle = true }) {
+  const dark = useEffectiveTheme() === 'dark';
+  const h = Math.round(size * 1.1);
   return (
-    <span className="inline-flex items-center gap-2.5">
+    <span className="inline-flex items-center gap-2">
       <LogoMark size={size} />
-      <span className="flex flex-col leading-none">
-        <span className="text-[15px] font-semibold tracking-tight text-fg">Analytica</span>
-        {subtitle && <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted">Studio</span>}
-      </span>
+      <img
+        src={dark ? wordmarkDark : wordmarkLight}
+        alt="Analytica Studio"
+        draggable={false}
+        style={{ height: h, width: 'auto' }}
+      />
     </span>
   );
 }
